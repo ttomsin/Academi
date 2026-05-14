@@ -296,29 +296,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addTask = async (taskInput: Omit<Task, 'id' | 'status'>) => {
     try {
+      // Validate course_id if provided (it should be required based on your type)
+      if (!taskInput.course_id) {
+        throw new Error('Course ID is required for this task');
+      }
+
+      const courseExists = courses.some(course => course.id === taskInput.course_id);
+      if (!courseExists) {
+        throw new Error(`Course with ID ${taskInput.course_id} not found. Please add the course first.`);
+      }
+
+      // Make sure we're not sending any 'course' field to the API
+      const { course, ...cleanTaskInput } = taskInput as any;
+
       const res = await api.createTask({
-        title: taskInput.title,
-        course_id: taskInput.course_id,
-        deadline: taskInput.deadline,
-        scheduled_start: taskInput.scheduled_start,
-        scheduled_end: taskInput.scheduled_end,
-        estimated_duration_mins: taskInput.estimated_duration_mins,
-        type: taskInput.type || 'assignment',
-        assessment_weight: taskInput.assessment_weight
+        title: cleanTaskInput.title,
+        course_id: cleanTaskInput.course_id,
+        deadline: cleanTaskInput.deadline,
+        scheduled_start: cleanTaskInput.scheduled_start,
+        scheduled_end: cleanTaskInput.scheduled_end,
+        estimated_duration_mins: cleanTaskInput.estimated_duration_mins || 60,
+        type: cleanTaskInput.type || 'assignment',
+        assessment_weight: cleanTaskInput.assessment_weight,
+        start_time: cleanTaskInput.start_time,
+        end_time: cleanTaskInput.end_time,
       });
+
       // Refresh tasks
       const newTasks = await api.getTasks();
       setTasks(Array.isArray(newTasks) ? newTasks : (newTasks as any)?.data || []);
-      
-      const scheduledDateStr = res?.scheduled_start;
-      if (scheduledDateStr) {
-         addNotification({
-          message: `I scheduled "${taskInput.title}" for ${format(parseISO(scheduledDateStr), 'EEEE, MMM do')}.`,
-          type: 'achievement' as any,
-        });
-      }
-    } catch (e) {
-      console.error(e);
+
+      toast.success("Task added successfully!");
+    } catch (e: any) {
+      console.error("Failed to add task:", e);
+      toast.error(`Failed to add task: ${e.message || 'Unknown error'}`);
       throw e;
     }
   };

@@ -46,6 +46,7 @@ export interface Task {
   type: TaskType;
   estimated_duration_mins?: number; // Kept for backwards compatibility if needed
   assessment_weight?: number;
+
 }
 
 export type NotificationType = 'reminder' | 'deadline_warning' | 'missed' | 'rescheduled' | 'achievement' | 'streak' | 'system';

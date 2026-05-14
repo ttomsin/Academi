@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../store/AppProvider';
 import { Plus, Notebook, Clock, Calendar as CalendarIcon, CheckCircle2, ChevronDown, Circle, Edit2, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import {toast} from "sonner";
 
 export function Tasks() {
   const { tasks, courses, addTask, updateTask, deleteTask, completeTask } = useAppStore();
@@ -27,44 +28,52 @@ export function Tasks() {
   const handleSaveTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !course || !deadline) return;
-    
+
     // Add time component to deadline if it's just a date
     const finalDeadline = deadline.includes('T') ? new Date(deadline).toISOString() : new Date(`${deadline}T23:59:59`).toISOString();
-    
+
     // Calculate scheduled_start and scheduled_end based on deadline date and pickers
     const scheduledStart = new Date(`${deadline}T${startTime}:00`).toISOString();
     const scheduledEnd = new Date(`${deadline}T${endTime}:00`).toISOString();
-    
-    // Convert course ID back from select
+
+    // Find the course object to get its ID
     const courseObj = courses.find(c => c.code === course);
-    
+
+    // Validate course exists
+    if (!courseObj) {
+      toast.error("Please select a valid course");
+      return;
+    }
+
+    // Create task object matching your database schema
+    const taskData = {
+      title,
+      course_id: courseObj.id,
+      deadline: finalDeadline,
+      scheduled_start: scheduledStart,
+      scheduled_end: scheduledEnd,
+      type: 'assignment' as const,
+      estimated_duration_mins: 60,  // Calculate from start/end times if needed
+      // DO NOT include start_time or end_time - they don't exist in your DB
+    };
+
     if (editingTaskId) {
-      updateTask(editingTaskId, {
-        title,
-        course_id: courseObj?.id || 0,
-        deadline: finalDeadline,
-        scheduled_start: scheduledStart,
-        scheduled_end: scheduledEnd,
-      });
+      updateTask(editingTaskId, taskData);
       setEditingTaskId(null);
     } else {
-      addTask({
-        title,
-        course_id: courseObj?.id || 0,
-        course: courseObj || null,
-        deadline: finalDeadline,
-        scheduled_start: scheduledStart,
-        scheduled_end: scheduledEnd,
-        type: 'assignment'
-      });
+      addTask(taskData);
     }
-    
+
+    // Reset form
     setTitle('');
     setCourse('');
     setDeadline('');
+    setStartTime('09:00');
+    setEndTime('10:00');
     setShowAddForm(false);
-  };
 
+    toast.success(editingTaskId ? "Task updated!" : "Task added!");
+  };
   return (
     <div className="space-y-6 pb-8">
       <div className="flex items-center justify-between">
